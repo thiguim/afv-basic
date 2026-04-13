@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter test:*)",
+      "Bash(cmd /c \"flutter test --reporter=compact\")",
+      "Bash(powershell -Command \"cd 'D:\\\\DEV\\\\REPOs\\\\CLAUDE CODE\\\\AFV-Basico\\\\AFV-Basico'; flutter test --reporter=compact 2>&1\")",
+      "Read(//c/Users/EnzoNascimentoCabrer/AppData/Local/Programs//**)",
+      "Read(//c/flutter/**)",
+      "Read(//c//**)",
+      "Bash(\"/c/Users/EnzoNascimentoCabrer/flutter/bin/flutter.bat\" test:*)"
+    ]
+  }
+}
