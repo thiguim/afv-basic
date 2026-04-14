@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:afv_basico/controllers/product_controller.dart';
 import 'package:afv_basico/models/product.dart';
+import 'package:afv_basico/repositories/memory/memory_product_repository.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -17,7 +18,10 @@ void main() {
   group('ProductController', () {
     late ProductController ctrl;
 
-    setUp(() => ctrl = ProductController());
+    setUp(() async {
+      ctrl = ProductController(MemoryProductRepository());
+      await Future.delayed(Duration.zero); // aguarda _load() completar
+    });
     tearDown(() => ctrl.dispose());
 
     // ── Dados iniciais ─────────────────────────────────────────────────────────
@@ -46,25 +50,28 @@ void main() {
     // ── add ────────────────────────────────────────────────────────────────────
 
     group('add', () {
-      test('aumenta o total de produtos em 1', () {
+      test('aumenta o total de produtos em 1', () async {
         ctrl.add(_product());
+        await Future.delayed(Duration.zero);
         expect(ctrl.products.length, 9);
       });
 
-      test('produto adicionado está presente na lista', () {
+      test('produto adicionado está presente na lista', () async {
         final p = _product(id: 'novo', name: 'Produto Especial');
         ctrl.add(p);
+        await Future.delayed(Duration.zero);
         expect(ctrl.products.any((x) => x.id == 'novo'), isTrue);
       });
 
-      test('notifica listeners ao adicionar', () {
+      test('notifica listeners ao adicionar', () async {
         var notificacoes = 0;
         ctrl.addListener(() => notificacoes++);
         ctrl.add(_product());
+        await Future.delayed(Duration.zero);
         expect(notificacoes, 1);
       });
 
-      test('mantém todos os atributos do produto', () {
+      test('mantém todos os atributos do produto', () async {
         final p = _product(
           id: 'p-test',
           name: 'Produto KG',
@@ -73,6 +80,7 @@ void main() {
           unit: 'KG',
         );
         ctrl.add(p);
+        await Future.delayed(Duration.zero);
         final salvo = ctrl.products.firstWhere((x) => x.id == 'p-test');
         expect(salvo.name, 'Produto KG');
         expect(salvo.code, 'KG001');
@@ -84,32 +92,36 @@ void main() {
     // ── update ─────────────────────────────────────────────────────────────────
 
     group('update', () {
-      test('altera os dados do produto existente pelo id', () {
+      test('altera os dados do produto existente pelo id', () async {
         final original = ctrl.products.first;
         final atualizado = original.copyWith(price: 9999.99);
         ctrl.update(atualizado);
+        await Future.delayed(Duration.zero);
 
         final encontrado = ctrl.products.firstWhere((p) => p.id == original.id);
         expect(encontrado.price, 9999.99);
       });
 
-      test('não altera o total de produtos', () {
+      test('não altera o total de produtos', () async {
         final original = ctrl.products.first;
         ctrl.update(original.copyWith(name: 'Outro Nome'));
+        await Future.delayed(Duration.zero);
         expect(ctrl.products.length, 8);
       });
 
-      test('notifica listeners ao atualizar', () {
+      test('notifica listeners ao atualizar', () async {
         var notificacoes = 0;
         ctrl.addListener(() => notificacoes++);
         ctrl.update(ctrl.products.first.copyWith(price: 1.0));
+        await Future.delayed(Duration.zero);
         expect(notificacoes, 1);
       });
 
-      test('id inexistente não altera a lista nem notifica', () {
+      test('id inexistente não altera a lista nem notifica', () async {
         var notificacoes = 0;
         ctrl.addListener(() => notificacoes++);
         ctrl.update(_product(id: 'nao-existe'));
+        await Future.delayed(Duration.zero);
         expect(ctrl.products.length, 8);
         expect(notificacoes, 0);
       });
@@ -118,35 +130,40 @@ void main() {
     // ── delete ─────────────────────────────────────────────────────────────────
 
     group('delete', () {
-      test('diminui o total de produtos em 1', () {
+      test('diminui o total de produtos em 1', () async {
         final id = ctrl.products.first.id;
         ctrl.delete(id);
+        await Future.delayed(Duration.zero);
         expect(ctrl.products.length, 7);
       });
 
-      test('produto removido não está mais na lista', () {
+      test('produto removido não está mais na lista', () async {
         final id = ctrl.products.first.id;
         ctrl.delete(id);
+        await Future.delayed(Duration.zero);
         expect(ctrl.products.any((p) => p.id == id), isFalse);
       });
 
-      test('notifica listeners ao remover', () {
+      test('notifica listeners ao remover', () async {
         var notificacoes = 0;
         ctrl.addListener(() => notificacoes++);
         ctrl.delete(ctrl.products.first.id);
+        await Future.delayed(Duration.zero);
         expect(notificacoes, 1);
       });
 
-      test('id inexistente não altera a lista', () {
+      test('id inexistente não altera a lista', () async {
         ctrl.delete('id-que-nao-existe');
+        await Future.delayed(Duration.zero);
         expect(ctrl.products.length, 8);
       });
 
-      test('deletar todos os produtos resulta em lista vazia', () {
+      test('deletar todos os produtos resulta em lista vazia', () async {
         final ids = ctrl.products.map((p) => p.id).toList();
         for (final id in ids) {
           ctrl.delete(id);
         }
+        await Future.delayed(Duration.zero);
         expect(ctrl.products, isEmpty);
       });
     });
@@ -190,8 +207,9 @@ void main() {
         expect(ctrl.products.length, 8);
       });
 
-      test('produto recém-adicionado é pesquisável imediatamente', () {
+      test('produto recém-adicionado é pesquisável imediatamente', () async {
         ctrl.add(_product(id: 'z', name: 'Produto Ultraespecífico'));
+        await Future.delayed(Duration.zero);
         expect(ctrl.search('Ultraespecífico'), isNotEmpty);
       });
     });

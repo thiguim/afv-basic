@@ -710,7 +710,7 @@ class _CustomerPickerSheetState extends State<_CustomerPickerSheet> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final filtered = context.read<CustomerController>().search(_query);
+    final filtered = context.watch<CustomerController>().search(_query);
 
     return DraggableScrollableSheet(
       expand: false,
@@ -804,7 +804,7 @@ class _ProductPickerSheetState extends State<_ProductPickerSheet> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final filtered = context.read<ProductController>().search(_query);
+    final filtered = context.watch<ProductController>().search(_query);
 
     return DraggableScrollableSheet(
       expand: false,

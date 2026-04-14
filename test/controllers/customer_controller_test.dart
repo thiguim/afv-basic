@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:afv_basico/controllers/customer_controller.dart';
 import 'package:afv_basico/models/customer.dart';
+import 'package:afv_basico/repositories/memory/memory_customer_repository.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -25,7 +26,10 @@ void main() {
   group('CustomerController', () {
     late CustomerController ctrl;
 
-    setUp(() => ctrl = CustomerController());
+    setUp(() async {
+      ctrl = CustomerController(MemoryCustomerRepository());
+      await Future.delayed(Duration.zero); // aguarda _load() completar
+    });
     tearDown(() => ctrl.dispose());
 
     // ── Dados iniciais ─────────────────────────────────────────────────────────
@@ -46,28 +50,32 @@ void main() {
     // ── add ────────────────────────────────────────────────────────────────────
 
     group('add', () {
-      test('aumenta o total de clientes em 1', () {
+      test('aumenta o total de clientes em 1', () async {
         ctrl.add(_customer());
+        await Future.delayed(Duration.zero);
         expect(ctrl.customers.length, 5);
       });
 
-      test('cliente adicionado está presente na lista', () {
+      test('cliente adicionado está presente na lista', () async {
         final c = _customer(id: 'novo', name: 'Maria Nova');
         ctrl.add(c);
+        await Future.delayed(Duration.zero);
         expect(ctrl.customers.any((x) => x.id == 'novo'), isTrue);
       });
 
-      test('notifica listeners ao adicionar', () {
+      test('notifica listeners ao adicionar', () async {
         var notificacoes = 0;
         ctrl.addListener(() => notificacoes++);
         ctrl.add(_customer());
+        await Future.delayed(Duration.zero);
         expect(notificacoes, 1);
       });
 
-      test('adicionar múltiplos clientes acumula corretamente', () {
+      test('adicionar múltiplos clientes acumula corretamente', () async {
         ctrl.add(_customer(id: 'a'));
         ctrl.add(_customer(id: 'b'));
         ctrl.add(_customer(id: 'c'));
+        await Future.delayed(Duration.zero);
         expect(ctrl.customers.length, 7);
       });
     });
@@ -75,32 +83,36 @@ void main() {
     // ── update ─────────────────────────────────────────────────────────────────
 
     group('update', () {
-      test('altera os dados do cliente existente pelo id', () {
+      test('altera os dados do cliente existente pelo id', () async {
         final original = ctrl.customers.first;
         final atualizado = original.copyWith(name: 'Nome Alterado');
         ctrl.update(atualizado);
+        await Future.delayed(Duration.zero);
 
         final encontrado = ctrl.customers.firstWhere((c) => c.id == original.id);
         expect(encontrado.name, 'Nome Alterado');
       });
 
-      test('não altera o total de clientes', () {
+      test('não altera o total de clientes', () async {
         final original = ctrl.customers.first;
         ctrl.update(original.copyWith(name: 'Outro'));
+        await Future.delayed(Duration.zero);
         expect(ctrl.customers.length, 4);
       });
 
-      test('notifica listeners ao atualizar', () {
+      test('notifica listeners ao atualizar', () async {
         var notificacoes = 0;
         ctrl.addListener(() => notificacoes++);
         ctrl.update(ctrl.customers.first.copyWith(name: 'X'));
+        await Future.delayed(Duration.zero);
         expect(notificacoes, 1);
       });
 
-      test('id inexistente não altera a lista nem notifica', () {
+      test('id inexistente não altera a lista nem notifica', () async {
         var notificacoes = 0;
         ctrl.addListener(() => notificacoes++);
         ctrl.update(_customer(id: 'nao-existe'));
+        await Future.delayed(Duration.zero);
         expect(ctrl.customers.length, 4);
         expect(notificacoes, 0);
       });
@@ -109,27 +121,31 @@ void main() {
     // ── delete ─────────────────────────────────────────────────────────────────
 
     group('delete', () {
-      test('diminui o total de clientes em 1', () {
+      test('diminui o total de clientes em 1', () async {
         final id = ctrl.customers.first.id;
         ctrl.delete(id);
+        await Future.delayed(Duration.zero);
         expect(ctrl.customers.length, 3);
       });
 
-      test('cliente removido não está mais na lista', () {
+      test('cliente removido não está mais na lista', () async {
         final id = ctrl.customers.first.id;
         ctrl.delete(id);
+        await Future.delayed(Duration.zero);
         expect(ctrl.customers.any((c) => c.id == id), isFalse);
       });
 
-      test('notifica listeners ao remover', () {
+      test('notifica listeners ao remover', () async {
         var notificacoes = 0;
         ctrl.addListener(() => notificacoes++);
         ctrl.delete(ctrl.customers.first.id);
+        await Future.delayed(Duration.zero);
         expect(notificacoes, 1);
       });
 
-      test('id inexistente não altera a lista', () {
+      test('id inexistente não altera a lista', () async {
         ctrl.delete('id-que-nao-existe');
+        await Future.delayed(Duration.zero);
         expect(ctrl.customers.length, 4);
       });
     });
@@ -173,8 +189,9 @@ void main() {
         expect(ctrl.customers.length, 4);
       });
 
-      test('adicionar cliente novo o torna pesquisável', () {
+      test('adicionar cliente novo o torna pesquisável', () async {
         ctrl.add(_customer(id: 'z', name: 'Zélia Novak'));
+        await Future.delayed(Duration.zero);
         expect(ctrl.search('Zélia'), isNotEmpty);
       });
     });

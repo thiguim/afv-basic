@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -16,6 +17,10 @@ class DatabaseService {
     _db ??= await _open();
     return _db!;
   }
+
+  /// Injeta um banco já aberto — usar apenas em testes.
+  @visibleForTesting
+  static void overrideForTesting(Database db) => instance._db = db;
 
   // ── Abertura ──────────────────────────────────────────────────────────────
 
@@ -60,7 +65,10 @@ class DatabaseService {
 
   // ── Schema ────────────────────────────────────────────────────────────────
 
-  Future<void> _onCreate(Database db, int version) async {
+  Future<void> _onCreate(Database db, int version) => applySchema(db);
+
+  /// Cria todas as tabelas — exposto para ser reutilizado nos testes.
+  static Future<void> applySchema(Database db) async {
     await db.execute('''
       CREATE TABLE TMVOCLI (
         IDCLIE  TEXT PRIMARY KEY,
@@ -119,7 +127,7 @@ class DatabaseService {
         QTITEM  REAL    NOT NULL,
         VLPREC  REAL    NOT NULL,
         PCDSCT  REAL    NOT NULL DEFAULT 0,
-        FOREIGN KEY (IDPEDI) REFERENCES TMVOCAB(IDPEDI),
+        FOREIGN KEY (IDPEDI) REFERENCES TMVOCAB(IDPEDI) ON DELETE CASCADE,
         FOREIGN KEY (IDPROD) REFERENCES TMVOPROD(IDPROD)
       )
     ''');

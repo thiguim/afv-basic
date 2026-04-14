@@ -25,7 +25,7 @@ Order _order({
   OrderStatus status = OrderStatus.pending,
 }) =>
     Order(
-      id: 'o-001',
+      id: 1,
       createdAt: DateTime(2025, 6, 15),
       customerId: 'c1',
       customerName: 'Cliente Teste',
@@ -51,6 +51,28 @@ void main() {
 
     test('cancelled retorna "Cancelado"', () {
       expect(OrderStatus.cancelled.label, 'Cancelado');
+    });
+  });
+
+  group('OrderStatusExt.fromString', () {
+    test('converte "pending" corretamente', () {
+      expect(OrderStatusExt.fromString('pending'), OrderStatus.pending);
+    });
+
+    test('converte "confirmed" corretamente', () {
+      expect(OrderStatusExt.fromString('confirmed'), OrderStatus.confirmed);
+    });
+
+    test('converte "cancelled" corretamente', () {
+      expect(OrderStatusExt.fromString('cancelled'), OrderStatus.cancelled);
+    });
+
+    test('valor desconhecido retorna pending como fallback', () {
+      expect(OrderStatusExt.fromString('unknown'), OrderStatus.pending);
+    });
+
+    test('string vazia retorna pending como fallback', () {
+      expect(OrderStatusExt.fromString(''), OrderStatus.pending);
     });
   });
 

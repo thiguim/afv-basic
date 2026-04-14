@@ -5,19 +5,18 @@ import 'package:provider/provider.dart';
 import 'package:afv_basico/screens/orders_screen.dart';
 import 'package:afv_basico/controllers/order_controller.dart';
 import 'package:afv_basico/models/order.dart';
+import 'package:afv_basico/repositories/memory/memory_order_repository.dart';
 import '../helpers.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/// Adiciona um pedido simples ao controller de testes.
-void _addOrder(
+/// Cria e adiciona um pedido ao controller, aguardando a operação async.
+Future<Order> _addOrder(
   OrderController ctrl, {
-  required String id,
   required String customerName,
   OrderStatus status = OrderStatus.pending,
-}) {
-  ctrl.add(Order(
-    id: id,
+}) async {
+  final order = Order(
     createdAt: DateTime.now(),
     customerId: 'c1',
     customerName: customerName,
@@ -32,8 +31,15 @@ void _addOrder(
     paymentConditionId: 'pc1',
     paymentConditionName: 'À Vista',
     status: status,
-  ));
+  );
+  ctrl.add(order);
+  await Future.delayed(Duration.zero);
+  return order;
 }
+
+/// Cria um [OrderController] com repositório em memória limpo.
+OrderController _freshCtrl() =>
+    OrderController(MemoryOrderRepository());
 
 /// Envolve OrdersScreen com apenas OrderController (screen não precisa dos outros).
 Widget _wrapWithCtrl(OrderController ctrl) =>
@@ -41,6 +47,20 @@ Widget _wrapWithCtrl(OrderController ctrl) =>
       value: ctrl,
       child: const MaterialApp(home: OrdersScreen()),
     );
+
+/// Substituto de [pumpAndSettle] para testes com [_wrapWithCtrl].
+///
+/// [pumpAndSettle] fica em loop infinito porque o [CustomScrollView] com
+/// [SliverAppBar.large] + [SliverList] mantém a simulação de física de scroll
+/// ativa mesmo sem interação do usuário. Pumpar por duração fixa é o padrão
+/// recomendado para widgets com animações contínuas.
+Future<void> _pumpFrames(
+  WidgetTester tester, [
+  Duration duration = const Duration(milliseconds: 300),
+]) async {
+  await tester.pump();
+  await tester.pump(duration);
+}
 
 // ── Testes ────────────────────────────────────────────────────────────────────
 
@@ -103,44 +123,43 @@ void main() {
 
     group('exibição de pedidos', () {
       testWidgets('exibe nome do cliente do pedido', (tester) async {
-        final ctrl = OrderController();
-        _addOrder(ctrl, id: 'order0001', customerName: 'Empresa XYZ');
+        final ctrl = _freshCtrl();
+        await _addOrder(ctrl, customerName: 'Empresa XYZ');
         addTearDown(ctrl.dispose);
 
         await tester.pumpWidget(_wrapWithCtrl(ctrl));
-        await tester.pumpAndSettle();
+        await _pumpFrames(tester);
         expect(find.text('Empresa XYZ'), findsOneWidget);
       });
 
       testWidgets('exibe badge de status "Pendente" no card', (tester) async {
-        final ctrl = OrderController();
-        _addOrder(ctrl, id: 'order0001', customerName: 'Cliente A', status: OrderStatus.pending);
+        final ctrl = _freshCtrl();
+        await _addOrder(ctrl, customerName: 'Cliente A', status: OrderStatus.pending);
         addTearDown(ctrl.dispose);
 
         await tester.pumpWidget(_wrapWithCtrl(ctrl));
-        await tester.pumpAndSettle();
-        // Badge no card + chip no filtro = findsWidgets
+        await _pumpFrames(tester);
         expect(find.text('Pendente'), findsWidgets);
       });
 
       testWidgets('exibe badge de status "Confirmado" no card', (tester) async {
-        final ctrl = OrderController();
-        _addOrder(ctrl, id: 'order0001', customerName: 'Cliente B', status: OrderStatus.confirmed);
+        final ctrl = _freshCtrl();
+        await _addOrder(ctrl, customerName: 'Cliente B', status: OrderStatus.confirmed);
         addTearDown(ctrl.dispose);
 
         await tester.pumpWidget(_wrapWithCtrl(ctrl));
-        await tester.pumpAndSettle();
+        await _pumpFrames(tester);
         expect(find.text('Confirmado'), findsWidgets);
       });
 
       testWidgets('exibe múltiplos pedidos simultâneos', (tester) async {
-        final ctrl = OrderController();
-        _addOrder(ctrl, id: 'order0001', customerName: 'Cliente Alpha');
-        _addOrder(ctrl, id: 'order0002', customerName: 'Cliente Beta');
+        final ctrl = _freshCtrl();
+        await _addOrder(ctrl, customerName: 'Cliente Alpha');
+        await _addOrder(ctrl, customerName: 'Cliente Beta');
         addTearDown(ctrl.dispose);
 
         await tester.pumpWidget(_wrapWithCtrl(ctrl));
-        await tester.pumpAndSettle();
+        await _pumpFrames(tester);
         expect(find.text('Cliente Alpha'), findsOneWidget);
         expect(find.text('Cliente Beta'), findsOneWidget);
       });
@@ -150,85 +169,82 @@ void main() {
 
     group('filtros de status', () {
       testWidgets('filtro "Pendente" exibe apenas pedidos pendentes', (tester) async {
-        final ctrl = OrderController();
-        _addOrder(ctrl, id: 'order0001', customerName: 'Pendente Alpha', status: OrderStatus.pending);
-        _addOrder(ctrl, id: 'order0002', customerName: 'Confirmado Beta', status: OrderStatus.confirmed);
+        final ctrl = _freshCtrl();
+        await _addOrder(ctrl, customerName: 'Pendente Alpha', status: OrderStatus.pending);
+        await _addOrder(ctrl, customerName: 'Confirmado Beta', status: OrderStatus.confirmed);
         addTearDown(ctrl.dispose);
 
         await tester.pumpWidget(_wrapWithCtrl(ctrl));
-        await tester.pumpAndSettle();
+        await _pumpFrames(tester);
 
         await tester.tap(find.widgetWithText(FilterChip, 'Pendente'));
-        await tester.pumpAndSettle();
+        await _pumpFrames(tester);
 
         expect(find.text('Pendente Alpha'), findsOneWidget);
         expect(find.text('Confirmado Beta'), findsNothing);
       });
 
       testWidgets('filtro "Confirmado" exibe apenas pedidos confirmados', (tester) async {
-        final ctrl = OrderController();
-        _addOrder(ctrl, id: 'order0001', customerName: 'Pendente Alpha', status: OrderStatus.pending);
-        _addOrder(ctrl, id: 'order0002', customerName: 'Confirmado Beta', status: OrderStatus.confirmed);
+        final ctrl = _freshCtrl();
+        await _addOrder(ctrl, customerName: 'Pendente Alpha', status: OrderStatus.pending);
+        await _addOrder(ctrl, customerName: 'Confirmado Beta', status: OrderStatus.confirmed);
         addTearDown(ctrl.dispose);
 
         await tester.pumpWidget(_wrapWithCtrl(ctrl));
-        await tester.pumpAndSettle();
+        await _pumpFrames(tester);
 
         await tester.tap(find.widgetWithText(FilterChip, 'Confirmado'));
-        await tester.pumpAndSettle();
+        await _pumpFrames(tester);
 
         expect(find.text('Confirmado Beta'), findsOneWidget);
         expect(find.text('Pendente Alpha'), findsNothing);
       });
 
       testWidgets('filtro "Cancelado" exibe apenas pedidos cancelados', (tester) async {
-        final ctrl = OrderController();
-        _addOrder(ctrl, id: 'order0001', customerName: 'Pendente X', status: OrderStatus.pending);
-        _addOrder(ctrl, id: 'order0002', customerName: 'Cancelado Y', status: OrderStatus.cancelled);
+        final ctrl = _freshCtrl();
+        await _addOrder(ctrl, customerName: 'Pendente X', status: OrderStatus.pending);
+        await _addOrder(ctrl, customerName: 'Cancelado Y', status: OrderStatus.cancelled);
         addTearDown(ctrl.dispose);
 
         await tester.pumpWidget(_wrapWithCtrl(ctrl));
-        await tester.pumpAndSettle();
+        await _pumpFrames(tester);
 
         await tester.tap(find.widgetWithText(FilterChip, 'Cancelado'));
-        await tester.pumpAndSettle();
+        await _pumpFrames(tester);
 
         expect(find.text('Cancelado Y'), findsOneWidget);
         expect(find.text('Pendente X'), findsNothing);
       });
 
-      testWidgets('filtro ativo relicado retorna para "Todos"', (tester) async {
-        final ctrl = OrderController();
-        _addOrder(ctrl, id: 'order0001', customerName: 'Cliente A', status: OrderStatus.pending);
-        _addOrder(ctrl, id: 'order0002', customerName: 'Cliente B', status: OrderStatus.confirmed);
+      testWidgets('filtro ativo replicado retorna para "Todos"', (tester) async {
+        final ctrl = _freshCtrl();
+        await _addOrder(ctrl, customerName: 'Cliente A', status: OrderStatus.pending);
+        await _addOrder(ctrl, customerName: 'Cliente B', status: OrderStatus.confirmed);
         addTearDown(ctrl.dispose);
 
         await tester.pumpWidget(_wrapWithCtrl(ctrl));
-        await tester.pumpAndSettle();
+        await _pumpFrames(tester);
 
-        // Ativa filtro Pendente → só Cliente A visível
         await tester.tap(find.widgetWithText(FilterChip, 'Pendente'));
-        await tester.pumpAndSettle();
+        await _pumpFrames(tester);
         expect(find.text('Cliente B'), findsNothing);
 
-        // Toca novamente em Pendente → desativa filtro
         await tester.tap(find.widgetWithText(FilterChip, 'Pendente'));
-        await tester.pumpAndSettle();
+        await _pumpFrames(tester);
         expect(find.text('Cliente A'), findsOneWidget);
         expect(find.text('Cliente B'), findsOneWidget);
       });
 
       testWidgets('filtro sem correspondência exibe EmptyState', (tester) async {
-        final ctrl = OrderController();
-        _addOrder(ctrl, id: 'order0001', customerName: 'Pendente X', status: OrderStatus.pending);
+        final ctrl = _freshCtrl();
+        await _addOrder(ctrl, customerName: 'Pendente X', status: OrderStatus.pending);
         addTearDown(ctrl.dispose);
 
         await tester.pumpWidget(_wrapWithCtrl(ctrl));
-        await tester.pumpAndSettle();
+        await _pumpFrames(tester);
 
-        // Não há confirmados
         await tester.tap(find.widgetWithText(FilterChip, 'Confirmado'));
-        await tester.pumpAndSettle();
+        await _pumpFrames(tester);
         expect(find.text('Nenhum pedido'), findsOneWidget);
       });
     });
@@ -237,48 +253,47 @@ void main() {
 
     group('detalhe do pedido', () {
       testWidgets('toque no card abre bottom sheet com detalhes', (tester) async {
-        final ctrl = OrderController();
-        _addOrder(ctrl, id: 'order0001', customerName: 'Cliente Detalhe');
+        final ctrl = _freshCtrl();
+        await _addOrder(ctrl, customerName: 'Cliente Detalhe');
         addTearDown(ctrl.dispose);
 
         await tester.pumpWidget(_wrapWithCtrl(ctrl));
-        await tester.pumpAndSettle();
+        await _pumpFrames(tester);
 
         await tester.tap(find.text('Cliente Detalhe'));
-        await tester.pumpAndSettle();
+        await _pumpFrames(tester, const Duration(milliseconds: 500));
 
-        // Sheet exibe info do cliente e condição de pagamento
         expect(find.text('Cliente'), findsWidgets);
         expect(find.text('À Vista'), findsWidgets);
       });
 
       testWidgets('pedido pendente exibe botões Cancelar e Confirmar no detalhe', (tester) async {
-        final ctrl = OrderController();
-        _addOrder(ctrl, id: 'order0001', customerName: 'Pendente Detail', status: OrderStatus.pending);
+        final ctrl = _freshCtrl();
+        await _addOrder(ctrl, customerName: 'Pendente Detail', status: OrderStatus.pending);
         addTearDown(ctrl.dispose);
 
         await tester.pumpWidget(_wrapWithCtrl(ctrl));
-        await tester.pumpAndSettle();
+        await _pumpFrames(tester);
 
         await tester.tap(find.text('Pendente Detail'));
-        await tester.pumpAndSettle();
+        await _pumpFrames(tester, const Duration(milliseconds: 500));
 
         expect(find.text('Cancelar'), findsOneWidget);
         expect(find.text('Confirmar'), findsOneWidget);
       });
 
       testWidgets('confirmar pedido altera status para Confirmado', (tester) async {
-        final ctrl = OrderController();
-        _addOrder(ctrl, id: 'order0001', customerName: 'Para Confirmar', status: OrderStatus.pending);
+        final ctrl = _freshCtrl();
+        await _addOrder(ctrl, customerName: 'Para Confirmar', status: OrderStatus.pending);
         addTearDown(ctrl.dispose);
 
         await tester.pumpWidget(_wrapWithCtrl(ctrl));
-        await tester.pumpAndSettle();
+        await _pumpFrames(tester);
 
         await tester.tap(find.text('Para Confirmar'));
-        await tester.pumpAndSettle();
+        await _pumpFrames(tester, const Duration(milliseconds: 500));
         await tester.tap(find.text('Confirmar'));
-        await tester.pumpAndSettle();
+        await _pumpFrames(tester, const Duration(milliseconds: 500));
 
         expect(ctrl.orders.first.status, OrderStatus.confirmed);
       });
