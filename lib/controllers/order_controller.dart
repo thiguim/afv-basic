@@ -70,6 +70,23 @@ class OrderController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Atualiza os dados de um pedido existente.
+  ///
+  /// Lança [ArgumentError] se o pedido não estiver com status [OrderStatus.pending].
+  /// Pedidos confirmados ou cancelados são imutáveis.
+  void update(Order order) async {
+    if (order.status != OrderStatus.pending) {
+      throw ArgumentError(
+          'Só é possível editar pedidos com status pendente.');
+    }
+    await _repository.save(order);
+    final index = _orders.indexWhere((o) => o.id == order.id);
+    if (index != -1) {
+      _orders[index] = order;
+      notifyListeners();
+    }
+  }
+
   void updateStatus(int id, OrderStatus status) async {
     await _repository.updateStatus(id, status);
     final o = _orders.firstWhere((x) => x.id == id);

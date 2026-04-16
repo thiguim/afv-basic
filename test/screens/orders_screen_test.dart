@@ -298,5 +298,81 @@ void main() {
         expect(ctrl.orders.first.status, OrderStatus.confirmed);
       });
     });
+
+    // ── Botão Editar ───────────────────────────────────────────────────────────
+
+    group('botão Editar', () {
+      testWidgets('pedido pendente exibe botão Editar Pedido no detalhe', (tester) async {
+        final ctrl = _freshCtrl();
+        await _addOrder(ctrl, customerName: 'Pendente Edit', status: OrderStatus.pending);
+        addTearDown(ctrl.dispose);
+
+        await tester.pumpWidget(_wrapWithCtrl(ctrl));
+        await _pumpFrames(tester);
+
+        await tester.tap(find.text('Pendente Edit'));
+        await _pumpFrames(tester, const Duration(milliseconds: 500));
+
+        expect(find.text('Editar Pedido'), findsOneWidget);
+      });
+
+      testWidgets('pedido confirmado NÃO exibe botão Editar Pedido', (tester) async {
+        final ctrl = _freshCtrl();
+        await _addOrder(ctrl, customerName: 'Confirmado Edit', status: OrderStatus.confirmed);
+        addTearDown(ctrl.dispose);
+
+        await tester.pumpWidget(_wrapWithCtrl(ctrl));
+        await _pumpFrames(tester);
+
+        await tester.tap(find.text('Confirmado Edit'));
+        await _pumpFrames(tester, const Duration(milliseconds: 500));
+
+        expect(find.text('Editar Pedido'), findsNothing);
+      });
+
+      testWidgets('pedido cancelado NÃO exibe botão Editar Pedido', (tester) async {
+        final ctrl = _freshCtrl();
+        await _addOrder(ctrl, customerName: 'Cancelado Edit', status: OrderStatus.cancelled);
+        addTearDown(ctrl.dispose);
+
+        await tester.pumpWidget(_wrapWithCtrl(ctrl));
+        await _pumpFrames(tester);
+
+        await tester.tap(find.text('Cancelado Edit'));
+        await _pumpFrames(tester, const Duration(milliseconds: 500));
+
+        expect(find.text('Editar Pedido'), findsNothing);
+      });
+
+      testWidgets('pedido confirmado NÃO exibe botões Cancelar e Confirmar', (tester) async {
+        final ctrl = _freshCtrl();
+        await _addOrder(ctrl, customerName: 'Confirmado Sem Ações', status: OrderStatus.confirmed);
+        addTearDown(ctrl.dispose);
+
+        await tester.pumpWidget(_wrapWithCtrl(ctrl));
+        await _pumpFrames(tester);
+
+        await tester.tap(find.text('Confirmado Sem Ações'));
+        await _pumpFrames(tester, const Duration(milliseconds: 500));
+
+        expect(find.text('Cancelar'), findsNothing);
+        expect(find.text('Confirmar'), findsNothing);
+      });
+
+      testWidgets('pedido cancelado NÃO exibe botões Cancelar e Confirmar', (tester) async {
+        final ctrl = _freshCtrl();
+        await _addOrder(ctrl, customerName: 'Cancelado Sem Ações', status: OrderStatus.cancelled);
+        addTearDown(ctrl.dispose);
+
+        await tester.pumpWidget(_wrapWithCtrl(ctrl));
+        await _pumpFrames(tester);
+
+        await tester.tap(find.text('Cancelado Sem Ações'));
+        await _pumpFrames(tester, const Duration(milliseconds: 500));
+
+        expect(find.text('Cancelar'), findsNothing);
+        expect(find.text('Confirmar'), findsNothing);
+      });
+    });
   });
 }

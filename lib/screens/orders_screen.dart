@@ -335,6 +335,21 @@ class _OrderDetailSheet extends StatelessWidget {
           ],
           if (order.status == OrderStatus.pending) ...[
             const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  final nav = Navigator.of(context);
+                  nav.pop();
+                  nav.push(MaterialPageRoute(
+                    builder: (_) => NewOrderScreen(orderToEdit: order),
+                  ));
+                },
+                icon: const Icon(Icons.edit_outlined),
+                label: const Text('Editar Pedido'),
+              ),
+            ),
+            const SizedBox(height: 10),
             Row(
               children: [
                 Expanded(

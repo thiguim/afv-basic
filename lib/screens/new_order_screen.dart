@@ -18,6 +18,19 @@ class _CartItem {
 
   _CartItem({required this.product});
 
+  /// Reconstrói um _CartItem a partir de um OrderItem existente.
+  /// Usa os dados denormalizados do item para preservar preços originais.
+  _CartItem.fromOrderItem(OrderItem item)
+      : product = Product(
+          id: item.productId,
+          name: item.productName,
+          code: item.productCode,
+          price: item.unitPrice,
+          unit: item.productUnit,
+        ),
+        quantity = item.quantity,
+        discountPercent = item.discountPercent;
+
   double get subtotal =>
       product.price * quantity * (1 - discountPercent / 100);
 }
@@ -25,7 +38,11 @@ class _CartItem {
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 class NewOrderScreen extends StatefulWidget {
-  const NewOrderScreen({super.key});
+  /// Quando informado, a tela entra em modo de edição.
+  /// Só aceita pedidos com status [OrderStatus.pending].
+  final Order? orderToEdit;
+
+  const NewOrderScreen({super.key, this.orderToEdit});
 
   @override
   State<NewOrderScreen> createState() => _NewOrderScreenState();
@@ -40,6 +57,10 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
   final _discountCtrl = TextEditingController();
   final _surchargeCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
+
+  bool _initialized = false;
+
+  bool get _isEditing => widget.orderToEdit != null;
 
   // totals
   double get _itemsTotal =>
@@ -56,6 +77,39 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
       _paymentCondition != null;
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initialized && _isEditing) {
+      _initialized = true;
+      _populateFromOrder(widget.orderToEdit!);
+    }
+  }
+
+  void _populateFromOrder(Order o) {
+    _customer = Customer(id: o.customerId, name: o.customerName);
+
+    for (final item in o.items) {
+      _items.add(_CartItem.fromOrderItem(item));
+    }
+
+    final conditions = context.read<OrderController>().paymentConditions;
+    try {
+      _paymentCondition =
+          conditions.firstWhere((pc) => pc.id == o.paymentConditionId);
+    } catch (_) {}
+
+    _orderDiscount = o.discountPercent;
+    _orderSurcharge = o.surchargePercent;
+    if (o.discountPercent > 0) {
+      _discountCtrl.text = o.discountPercent.toStringAsFixed(2);
+    }
+    if (o.surchargePercent > 0) {
+      _surchargeCtrl.text = o.surchargePercent.toStringAsFixed(2);
+    }
+    _notesCtrl.text = o.notes;
+  }
+
+  @override
   void dispose() {
     _discountCtrl.dispose();
     _surchargeCtrl.dispose();
@@ -65,32 +119,55 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
 
   void _save() {
     final orderCtrl = context.read<OrderController>();
-    final order = Order(
-      createdAt: DateTime.now(),
-      customerId: _customer!.id,
-      customerName: _customer!.name,
-      items: _items
-          .map((ci) => OrderItem(
-                productId: ci.product.id,
-                productName: ci.product.name,
-                productCode: ci.product.code,
-                productUnit: ci.product.unit,
-                quantity: ci.quantity,
-                unitPrice: ci.product.price,
-                discountPercent: ci.discountPercent,
-              ))
-          .toList(),
-      paymentConditionId: _paymentCondition!.id,
-      paymentConditionName: _paymentCondition!.name,
-      discountPercent: _orderDiscount,
-      surchargePercent: _orderSurcharge,
-      notes: _notesCtrl.text.trim(),
-    );
-    orderCtrl.add(order);
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Pedido criado com sucesso!')),
-    );
+    final items = _items
+        .map((ci) => OrderItem(
+              productId: ci.product.id,
+              productName: ci.product.name,
+              productCode: ci.product.code,
+              productUnit: ci.product.unit,
+              quantity: ci.quantity,
+              unitPrice: ci.product.price,
+              discountPercent: ci.discountPercent,
+            ))
+        .toList();
+
+    if (_isEditing) {
+      final updated = Order(
+        id: widget.orderToEdit!.id,
+        createdAt: widget.orderToEdit!.createdAt,
+        status: widget.orderToEdit!.status,
+        customerId: _customer!.id,
+        customerName: _customer!.name,
+        items: items,
+        paymentConditionId: _paymentCondition!.id,
+        paymentConditionName: _paymentCondition!.name,
+        discountPercent: _orderDiscount,
+        surchargePercent: _orderSurcharge,
+        notes: _notesCtrl.text.trim(),
+      );
+      orderCtrl.update(updated);
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pedido atualizado com sucesso!')),
+      );
+    } else {
+      final order = Order(
+        createdAt: DateTime.now(),
+        customerId: _customer!.id,
+        customerName: _customer!.name,
+        items: items,
+        paymentConditionId: _paymentCondition!.id,
+        paymentConditionName: _paymentCondition!.name,
+        discountPercent: _orderDiscount,
+        surchargePercent: _orderSurcharge,
+        notes: _notesCtrl.text.trim(),
+      );
+      orderCtrl.add(order);
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pedido criado com sucesso!')),
+      );
+    }
   }
 
   // ── Builder ───────────────────────────────────────────────────────────────
@@ -102,12 +179,12 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
     return Scaffold(
       backgroundColor: colors.surface,
       appBar: AppBar(
-        title: const Text('Novo Pedido'),
+        title: Text(_isEditing ? 'Editar Pedido' : 'Novo Pedido'),
         actions: [
           if (_canSave)
             FilledButton(
               onPressed: _save,
-              child: const Text('Salvar'),
+              child: Text(_isEditing ? 'Atualizar' : 'Salvar'),
             ),
           const SizedBox(width: 8),
         ],

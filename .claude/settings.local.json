@@ -7,7 +7,9 @@
       "Read(//c/Users/EnzoNascimentoCabrer/AppData/Local/Programs//**)",
       "Read(//c/flutter/**)",
       "Read(//c//**)",
-      "Bash(\"/c/Users/EnzoNascimentoCabrer/flutter/bin/flutter.bat\" test:*)"
+      "Bash(\"/c/Users/EnzoNascimentoCabrer/flutter/bin/flutter.bat\" test:*)",
+      "Bash(xargs grep:*)",
+      "Bash(grep -E \"^d|\\\\.dart$\")"
     ]
   }
 }

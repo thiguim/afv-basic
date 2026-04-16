@@ -143,6 +143,156 @@ void main() {
       });
     });
 
+    // ── update ─────────────────────────────────────────────────────────────────
+
+    group('update', () {
+      test('substitui os dados do pedido na lista', () async {
+        final o = _order(status: OrderStatus.pending);
+        await _add(ctrl, o);
+
+        final atualizado = Order(
+          id: o.id,
+          createdAt: o.createdAt,
+          status: OrderStatus.pending,
+          customerId: 'c2',
+          customerName: 'Novo Cliente',
+          items: [_item(unitPrice: 200.0)],
+          paymentConditionId: 'pc2',
+          paymentConditionName: '30 dias',
+        );
+        ctrl.update(atualizado);
+        await Future.delayed(Duration.zero);
+
+        expect(ctrl.orders.first.customerName, 'Novo Cliente');
+        expect(ctrl.orders.first.itemsTotal, closeTo(200.0, 0.001));
+      });
+
+      test('não altera o id do pedido', () async {
+        final o = _order(status: OrderStatus.pending);
+        await _add(ctrl, o);
+        final idOriginal = o.id;
+
+        final atualizado = Order(
+          id: o.id,
+          createdAt: o.createdAt,
+          status: OrderStatus.pending,
+          customerId: 'c2',
+          customerName: 'Outro Cliente',
+          items: [_item()],
+          paymentConditionId: 'pc1',
+          paymentConditionName: 'À Vista',
+        );
+        ctrl.update(atualizado);
+        await Future.delayed(Duration.zero);
+
+        expect(ctrl.orders.first.id, idOriginal);
+      });
+
+      test('não altera o total de pedidos', () async {
+        final o = _order(status: OrderStatus.pending);
+        await _add(ctrl, o);
+
+        final atualizado = Order(
+          id: o.id,
+          createdAt: o.createdAt,
+          status: OrderStatus.pending,
+          customerId: 'c2',
+          customerName: 'Cliente X',
+          items: [_item()],
+          paymentConditionId: 'pc1',
+          paymentConditionName: 'À Vista',
+        );
+        ctrl.update(atualizado);
+        await Future.delayed(Duration.zero);
+
+        expect(ctrl.orders.length, 1);
+      });
+
+      test('notifica listeners ao atualizar', () async {
+        final o = _order(status: OrderStatus.pending);
+        await _add(ctrl, o);
+
+        var notificacoes = 0;
+        ctrl.addListener(() => notificacoes++);
+
+        final atualizado = Order(
+          id: o.id,
+          createdAt: o.createdAt,
+          status: OrderStatus.pending,
+          customerId: 'c2',
+          customerName: 'Cliente Y',
+          items: [_item()],
+          paymentConditionId: 'pc1',
+          paymentConditionName: 'À Vista',
+        );
+        ctrl.update(atualizado);
+        await Future.delayed(Duration.zero);
+
+        expect(notificacoes, greaterThanOrEqualTo(1));
+      });
+
+      test('lança ArgumentError ao tentar editar pedido confirmado', () async {
+        final o = _order(status: OrderStatus.confirmed);
+        await _add(ctrl, o);
+
+        final tentativa = Order(
+          id: o.id,
+          createdAt: o.createdAt,
+          status: OrderStatus.confirmed,
+          customerId: 'c2',
+          customerName: 'Inválido',
+          items: [_item()],
+          paymentConditionId: 'pc1',
+          paymentConditionName: 'À Vista',
+        );
+
+        expect(() => ctrl.update(tentativa), throwsArgumentError);
+      });
+
+      test('lança ArgumentError ao tentar editar pedido cancelado', () async {
+        final o = _order(status: OrderStatus.cancelled);
+        await _add(ctrl, o);
+
+        final tentativa = Order(
+          id: o.id,
+          createdAt: o.createdAt,
+          status: OrderStatus.cancelled,
+          customerId: 'c2',
+          customerName: 'Inválido',
+          items: [_item()],
+          paymentConditionId: 'pc1',
+          paymentConditionName: 'À Vista',
+        );
+
+        expect(() => ctrl.update(tentativa), throwsArgumentError);
+      });
+
+      test('atualiza apenas o pedido especificado (múltiplos pedidos)', () async {
+        final o1 = _order(status: OrderStatus.pending);
+        final o2 = _order(status: OrderStatus.pending);
+        await _add(ctrl, o1);
+        await _add(ctrl, o2);
+
+        final atualizado = Order(
+          id: o1.id,
+          createdAt: o1.createdAt,
+          status: OrderStatus.pending,
+          customerId: 'c9',
+          customerName: 'Apenas o1',
+          items: [_item()],
+          paymentConditionId: 'pc1',
+          paymentConditionName: 'À Vista',
+        );
+        ctrl.update(atualizado);
+        await Future.delayed(Duration.zero);
+
+        final found1 = ctrl.orders.firstWhere((o) => o.id == o1.id);
+        final found2 = ctrl.orders.firstWhere((o) => o.id == o2.id);
+        expect(found1.customerName, 'Apenas o1');
+        expect(found2.customerName, 'Cliente Teste');
+      });
+    });
+
     // ── updateStatus ───────────────────────────────────────────────────────────
 
     group('updateStatus', () {
