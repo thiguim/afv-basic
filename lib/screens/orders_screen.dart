@@ -76,10 +76,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
             ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton(
         onPressed: _openNewOrder,
-        icon: const Icon(Icons.add),
-        label: const Text('Novo Pedido'),
+        child: const Icon(Icons.add)
       ),
     );
   }

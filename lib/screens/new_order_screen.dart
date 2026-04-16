@@ -181,116 +181,121 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
       appBar: AppBar(
         title: Text(_isEditing ? 'Editar Pedido' : 'Novo Pedido'),
         actions: [
-          if (_canSave)
+          if (_canSave && !_isEditing)
             FilledButton(
               onPressed: _save,
-              child: Text(_isEditing ? 'Atualizar' : 'Salvar'),
+              child: const Text('Salvar'),
             ),
           const SizedBox(width: 8),
         ],
       ),
-      body: Stack(
+      // Column em vez de Stack+Positioned: a _TotalBar ocupa espaço real,
+      // então o ListView sabe exatamente qual área está disponível para scroll.
+      // Isso evita que o campo de Observações fique escondido atrás da barra
+      // quando o teclado sobe.
+      body: Column(
         children: [
-          ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 140),
-            children: [
-              // ── Cliente ───────────────────────────────────────────────────
-              const _SectionHeader(title: 'Cliente'),
-              _CustomerSelector(
-                selected: _customer,
-                onTap: () => _pickCustomer(),
-              ),
-              const SizedBox(height: 20),
-
-              // ── Produtos ──────────────────────────────────────────────────
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const _SectionHeader(title: 'Produtos'),
-                  TextButton.icon(
-                    onPressed: () => _pickProduct(),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Adicionar'),
-                  ),
-                ],
-              ),
-              if (_items.isEmpty)
-                _EmptyItemsHint(onTap: _pickProduct)
-              else
-                ..._items.map((item) => _CartItemTile(
-                      item: item,
-                      onRemove: () =>
-                          setState(() => _items.remove(item)),
-                      onChanged: () => setState(() {}),
-                    )),
-              const SizedBox(height: 20),
-
-              // ── Desconto / Acréscimo ──────────────────────────────────────
-              const _SectionHeader(title: 'Ajustes no Pedido'),
-              Row(
-                children: [
-                  Expanded(
-                    child: _PercentField(
-                      controller: _discountCtrl,
-                      label: 'Desconto (%)',
-                      icon: Icons.discount_outlined,
-                      onChanged: (v) => setState(() =>
-                          _orderDiscount = double.tryParse(v) ?? 0),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _PercentField(
-                      controller: _surchargeCtrl,
-                      label: 'Acréscimo (%)',
-                      icon: Icons.add_circle_outline,
-                      onChanged: (v) => setState(() =>
-                          _orderSurcharge = double.tryParse(v) ?? 0),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-
-              // ── Condição de pagamento ─────────────────────────────────────
-              const _SectionHeader(title: 'Condição de Pagamento'),
-              _PaymentSelector(
-                selected: _paymentCondition,
-                onSelect: (pc) =>
-                    setState(() => _paymentCondition = pc),
-              ),
-              const SizedBox(height: 20),
-
-              // ── Observações ───────────────────────────────────────────────
-              const _SectionHeader(title: 'Observações'),
-              TextField(
-                controller: _notesCtrl,
-                maxLines: 3,
-                decoration: InputDecoration(
-                  hintText: 'Instruções de entrega, referências...',
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  isDense: true,
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              children: [
+                // ── Cliente ─────────────────────────────────────────────────
+                const _SectionHeader(title: 'Cliente'),
+                _CustomerSelector(
+                  selected: _customer,
+                  onTap: () => _pickCustomer(),
                 ),
-              ),
-            ],
+                const SizedBox(height: 20),
+
+                // ── Produtos ─────────────────────────────────────────────────
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const _SectionHeader(title: 'Produtos'),
+                    TextButton.icon(
+                      onPressed: () => _pickProduct(),
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Adicionar'),
+                    ),
+                  ],
+                ),
+                if (_items.isEmpty)
+                  _EmptyItemsHint(onTap: _pickProduct)
+                else
+                  ..._items.map((item) => _CartItemTile(
+                        item: item,
+                        onRemove: () =>
+                            setState(() => _items.remove(item)),
+                        onChanged: () => setState(() {}),
+                      )),
+                const SizedBox(height: 20),
+
+                // ── Desconto / Acréscimo ──────────────────────────────────
+                const _SectionHeader(title: 'Ajustes no Pedido'),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _PercentField(
+                        controller: _discountCtrl,
+                        label: 'Desconto (%)',
+                        icon: Icons.discount_outlined,
+                        onChanged: (v) => setState(() =>
+                            _orderDiscount = double.tryParse(v) ?? 0),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _PercentField(
+                        controller: _surchargeCtrl,
+                        label: 'Acréscimo (%)',
+                        icon: Icons.add_circle_outline,
+                        onChanged: (v) => setState(() =>
+                            _orderSurcharge = double.tryParse(v) ?? 0),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // ── Condição de pagamento ─────────────────────────────────
+                const _SectionHeader(title: 'Condição de Pagamento'),
+                _PaymentSelector(
+                  selected: _paymentCondition,
+                  onSelect: (pc) =>
+                      setState(() => _paymentCondition = pc),
+                ),
+                const SizedBox(height: 20),
+
+                // ── Observações ───────────────────────────────────────────
+                const _SectionHeader(title: 'Observações'),
+                TextField(
+                  controller: _notesCtrl,
+                  maxLines: 3,
+                  // scrollPadding garante que o campo fica bem acima do teclado
+                  // (e não colado na borda da _TotalBar) ao receber foco.
+                  scrollPadding: const EdgeInsets.only(bottom: 24),
+                  decoration: InputDecoration(
+                    hintText: 'Instruções de entrega, referências...',
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    isDense: true,
+                  ),
+                ),
+              ],
+            ),
           ),
 
-          // ── Bottom total bar ──────────────────────────────────────────────
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: _TotalBar(
-              itemsTotal: _itemsTotal,
-              discount: _orderDiscount,
-              discountAmount: _discountAmount,
-              surcharge: _orderSurcharge,
-              surchargeAmount: _surchargeAmount,
-              total: _total,
-              canSave: _canSave,
-              onSave: _save,
-            ),
+          // ── Bottom total bar ────────────────────────────────────────────
+          // Filha direta da Column: o Expanded acima nunca sobrepõe esta barra.
+          _TotalBar(
+            itemsTotal: _itemsTotal,
+            discount: _orderDiscount,
+            discountAmount: _discountAmount,
+            surcharge: _orderSurcharge,
+            surchargeAmount: _surchargeAmount,
+            total: _total,
+            canSave: _canSave,
+            onSave: _save,
           ),
         ],
       ),
@@ -760,7 +765,7 @@ class _TotalBar extends StatelessWidget {
             height: 48,
             child: FilledButton(
               onPressed: canSave ? onSave : null,
-              child: const Text('Confirmar Pedido',
+              child: const Text('Fechar Pedido',
                   style: TextStyle(fontSize: 15)),
             ),
           ),

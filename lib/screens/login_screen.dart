@@ -69,6 +69,7 @@ class _LoginScreenState extends State<LoginScreen>
     final isLoading = context.watch<AuthController>().isLoading;
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       body: Stack(
         children: [
           // Fundo gradiente
@@ -204,6 +205,9 @@ class _LoginScreenState extends State<LoginScreen>
                                 obscureText: _obscure,
                                 textInputAction: TextInputAction.done,
                                 onFieldSubmitted: (_) => _login(),
+                                // Garante que o campo sobe o suficiente para
+                                // ficar bem acima do teclado ao receber foco.
+                                scrollPadding: const EdgeInsets.only(bottom: 120),
                                 validator: (v) {
                                   if (v == null || v.isEmpty) {
                                     return 'Informe a senha';

@@ -9,7 +9,8 @@
       "Read(//c//**)",
       "Bash(\"/c/Users/EnzoNascimentoCabrer/flutter/bin/flutter.bat\" test:*)",
       "Bash(xargs grep:*)",
-      "Bash(grep -E \"^d|\\\\.dart$\")"
+      "Bash(grep -E \"^d|\\\\.dart$\")",
+      "Bash(flutter analyze:*)"
     ]
   }
 }

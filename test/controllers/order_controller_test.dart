@@ -66,8 +66,8 @@ void main() {
     // ── paymentConditions ──────────────────────────────────────────────────────
 
     group('paymentConditions', () {
-      test('retorna exatamente 6 condições', () {
-        expect(ctrl.paymentConditions.length, 6);
+      test('retorna todas as condições do repositório (26)', () {
+        expect(ctrl.paymentConditions.length, 26);
       });
 
       test('primeira condição é À Vista (dias = 0)', () {
