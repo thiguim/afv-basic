@@ -12,15 +12,7 @@ class OrderController extends ChangeNotifier {
   final OrderRepository _repository;
 
   List<Order> _orders = [];
-
-  static const List<PaymentCondition> _paymentConditions = [
-    PaymentCondition(id: 'pc1', name: 'À Vista', days: 0, interestRate: 0),
-    PaymentCondition(id: 'pc2', name: '30 dias', days: 30, interestRate: 0),
-    PaymentCondition(id: 'pc3', name: '2x sem juros', days: 30, interestRate: 0),
-    PaymentCondition(id: 'pc4', name: '3x com juros (2%)', days: 30, interestRate: 2.0),
-    PaymentCondition(id: 'pc5', name: '6x com juros (3,5%)', days: 30, interestRate: 3.5),
-    PaymentCondition(id: 'pc6', name: '30/60/90 dias', days: 30, interestRate: 0),
-  ];
+  List<PaymentCondition> _paymentConditions = [];
 
   // ── Getters ──────────────────────────────────────────────────────────────────
 
@@ -59,7 +51,12 @@ class OrderController extends ChangeNotifier {
   // ── CRUD ─────────────────────────────────────────────────────────────────────
 
   Future<void> _load() async {
-    _orders = await _repository.getAll();
+    final results = await Future.wait([
+      _repository.getAll(),
+      _repository.getPaymentConditions(),
+    ]);
+    _orders = results[0] as List<Order>;
+    _paymentConditions = results[1] as List<PaymentCondition>;
     notifyListeners();
   }
 

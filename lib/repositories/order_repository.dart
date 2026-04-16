@@ -1,10 +1,14 @@
 import '../models/order.dart';
+import '../models/payment_condition.dart';
 
 /// Contrato de acesso a dados de pedidos.
 /// Implementações concretas podem usar SQLite, API REST, memória, etc.
 abstract class OrderRepository {
   /// Retorna todos os pedidos.
   Future<List<Order>> getAll();
+
+  /// Retorna todas as condições de pagamento cadastradas.
+  Future<List<PaymentCondition>> getPaymentConditions();
 
   /// Insere ou atualiza um pedido (upsert por id).
   /// Retorna o IDPEDI definitivo — gerado pelo banco no INSERT ou o próprio no UPDATE.

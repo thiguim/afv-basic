@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import '../../models/order.dart';
+import '../../models/payment_condition.dart';
 import '../../services/database_service.dart';
 import '../order_repository.dart';
 
@@ -30,6 +31,18 @@ class SqliteOrderRepository implements OrderRepository {
     }
 
     return orders;
+  }
+
+  @override
+  Future<List<PaymentCondition>> getPaymentConditions() async {
+    final db = await _dbService.database;
+    final rows = await db.query('TMVOCNDPGTO', orderBy: 'IDCPGT ASC');
+    return rows.map((r) => PaymentCondition(
+          id: r['IDCPGT'] as String,
+          name: r['NMCPGT'] as String,
+          days: r['NRPRAZ'] as int,
+          interestRate: (r['PCTAXA'] as num).toDouble(),
+        )).toList();
   }
 
   @override
