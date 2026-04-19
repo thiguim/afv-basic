@@ -207,27 +207,21 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // ── Produtos ─────────────────────────────────────────────────
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const _SectionHeader(title: 'Produtos'),
-                    TextButton.icon(
-                      onPressed: () => _pickProduct(),
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Adicionar'),
-                    ),
-                  ],
+                // ── Condição de pagamento ─────────────────────────────────
+                const _SectionHeader(title: 'Condição de Pagamento'),
+                _PaymentSelector(
+                  selected: _paymentCondition,
+                  onTap: () => _pickPaymentCondition(),
                 ),
-                if (_items.isEmpty)
-                  _EmptyItemsHint(onTap: _pickProduct)
-                else
-                  ..._items.map((item) => _CartItemTile(
-                        item: item,
-                        onRemove: () =>
-                            setState(() => _items.remove(item)),
-                        onChanged: () => setState(() {}),
-                      )),
+                const SizedBox(height: 20),
+
+                // ── Produtos ─────────────────────────────────────────────────
+                const _SectionHeader(title: 'Produtos'),
+                _ProductsSummaryCard(
+                  items: _items,
+                  itemsTotal: _itemsTotal,
+                  onTap: _pickProduct,
+                ),
                 const SizedBox(height: 20),
 
                 // ── Desconto / Acréscimo ──────────────────────────────────
@@ -254,15 +248,6 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                       ),
                     ),
                   ],
-                ),
-                const SizedBox(height: 20),
-
-                // ── Condição de pagamento ─────────────────────────────────
-                const _SectionHeader(title: 'Condição de Pagamento'),
-                _PaymentSelector(
-                  selected: _paymentCondition,
-                  onSelect: (pc) =>
-                      setState(() => _paymentCondition = pc),
                 ),
                 const SizedBox(height: 20),
 
@@ -325,8 +310,36 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (_) => _ProductPickerSheet(
-        already: _items.map((i) => i.product.id).toSet(),
-        onAdd: (p) => setState(() => _items.add(_CartItem(product: p))),
+        currentQuantities: {
+          for (final item in _items) item.product.id: item.quantity,
+        },
+        onQuantityChange: (product, qty) {
+          setState(() {
+            final idx =
+                _items.indexWhere((i) => i.product.id == product.id);
+            if (qty <= 0) {
+              if (idx >= 0) _items.removeAt(idx);
+            } else if (idx >= 0) {
+              _items[idx].quantity = qty;
+            } else {
+              _items.add(_CartItem(product: product)..quantity = qty);
+            }
+          });
+        },
+      ),
+    );
+  }
+
+  void _pickPaymentCondition() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (_) => _PaymentPickerSheet(
+        selected: _paymentCondition,
+        onSelect: (pc) => setState(() => _paymentCondition = pc),
       ),
     );
   }
@@ -591,6 +604,78 @@ class _EmptyItemsHint extends StatelessWidget {
   }
 }
 
+// ── Products summary card ─────────────────────────────────────────────────────
+
+class _ProductsSummaryCard extends StatelessWidget {
+  final List<_CartItem> items;
+  final double itemsTotal;
+  final VoidCallback onTap;
+
+  const _ProductsSummaryCard({
+    required this.items,
+    required this.itemsTotal,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final isEmpty = items.isEmpty;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: isEmpty ? colors.outlineVariant : colors.primary,
+          ),
+          borderRadius: BorderRadius.circular(12),
+          color: isEmpty
+              ? null
+              : colors.primaryContainer.withValues(alpha: 0.3),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isEmpty
+                  ? Icons.add_shopping_cart_outlined
+                  : Icons.shopping_cart_outlined,
+              color: isEmpty ? colors.onSurfaceVariant : colors.primary,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: isEmpty
+                  ? Text('Adicionar produtos',
+                      style: TextStyle(color: colors.onSurfaceVariant))
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          items.length == 1
+                              ? '1 produto adicionado'
+                              : '${items.length} produtos adicionados',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w600),
+                        ),
+                        Text(
+                          formatCurrency(itemsTotal),
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: colors.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+            ),
+            Icon(Icons.chevron_right, color: colors.onSurfaceVariant),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ── Percent field ─────────────────────────────────────────────────────────────
 
 class _PercentField extends StatelessWidget {
@@ -629,33 +714,191 @@ class _PercentField extends StatelessWidget {
 
 class _PaymentSelector extends StatelessWidget {
   final PaymentCondition? selected;
-  final ValueChanged<PaymentCondition> onSelect;
+  final VoidCallback onTap;
 
-  const _PaymentSelector(
-      {required this.selected, required this.onSelect});
+  const _PaymentSelector({required this.selected, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final conditions = context.read<OrderController>().paymentConditions;
     final colors = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          border: Border.all(
+              color: selected != null
+                  ? colors.primary
+                  : colors.outlineVariant),
+          borderRadius: BorderRadius.circular(12),
+          color: selected != null
+              ? colors.primaryContainer.withOpacity(0.3)
+              : null,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.payment_outlined,
+              color: selected != null
+                  ? colors.primary
+                  : colors.onSurfaceVariant,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: selected == null
+                  ? Text('Selecionar condição de pagamento',
+                      style: TextStyle(color: colors.onSurfaceVariant))
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(selected!.name,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w600)),
+                        if (selected!.days > 0)
+                          Text('${selected!.days} dias',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: colors.onSurfaceVariant)),
+                      ],
+                    ),
+            ),
+            Icon(Icons.chevron_right, color: colors.onSurfaceVariant),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: conditions.map((pc) {
-        final isSel = selected?.id == pc.id;
-        return ChoiceChip(
-          label: Text(pc.name),
-          selected: isSel,
-          selectedColor: colors.primaryContainer,
-          labelStyle: TextStyle(
-            color: isSel ? colors.onPrimaryContainer : colors.onSurface,
-            fontWeight:
-                isSel ? FontWeight.w600 : FontWeight.normal,
+// ── Payment picker sheet ──────────────────────────────────────────────────────
+
+class _PaymentPickerSheet extends StatefulWidget {
+  final PaymentCondition? selected;
+  final ValueChanged<PaymentCondition> onSelect;
+
+  const _PaymentPickerSheet(
+      {required this.selected, required this.onSelect});
+
+  @override
+  State<_PaymentPickerSheet> createState() => _PaymentPickerSheetState();
+}
+
+class _PaymentPickerSheetState extends State<_PaymentPickerSheet> {
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final all = context.read<OrderController>().paymentConditions;
+    final conditions = _query.isEmpty
+        ? all
+        : all
+            .where((pc) =>
+                pc.name.toLowerCase().contains(_query))
+            .toList();
+
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: keyboardHeight),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                        color: colors.outlineVariant,
+                        borderRadius: BorderRadius.circular(2)),
+                  ),
+                ),
+                const Text('Condição de Pagamento',
+                    style: TextStyle(
+                        fontSize: 17, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 12),
+                SearchBar(
+                  hintText: 'Buscar condição...',
+                  leading: const Icon(Icons.search),
+                  trailing: [
+                    if (_query.isNotEmpty)
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => setState(() => _query = ''),
+                      ),
+                  ],
+                  onChanged: (v) =>
+                      setState(() => _query = v.toLowerCase()),
+                ),
+              ],
+            ),
           ),
-          onSelected: (_) => onSelect(pc),
-        );
-      }).toList(),
+          const Divider(height: 1),
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.4,
+            ),
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: conditions.length,
+              separatorBuilder: (_, __) =>
+                  const Divider(height: 1, indent: 16),
+              itemBuilder: (ctx, i) {
+                final pc = conditions[i];
+                final isSel = widget.selected?.id == pc.id;
+                return ListTile(
+                  leading: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: isSel
+                          ? colors.primaryContainer
+                          : colors.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      isSel ? Icons.check : Icons.payment_outlined,
+                      size: 18,
+                      color: isSel
+                          ? colors.onPrimaryContainer
+                          : colors.onSurfaceVariant,
+                    ),
+                  ),
+                  title: Text(pc.name,
+                      style: TextStyle(
+                          fontWeight: isSel
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          color: isSel ? colors.primary : null)),
+                  subtitle: pc.days > 0
+                      ? Text('${pc.days} dias',
+                          style: const TextStyle(fontSize: 12))
+                      : null,
+                  trailing: pc.interestRate > 0
+                      ? Text(
+                          '+${pc.interestRate.toStringAsFixed(1)}% juros',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.orange.shade700))
+                      : null,
+                  onTap: () {
+                    widget.onSelect(pc);
+                    Navigator.pop(context);
+                  },
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
     );
   }
 }
@@ -869,30 +1112,55 @@ class _CustomerPickerSheetState extends State<_CustomerPickerSheet> {
 // ── Product picker sheet ──────────────────────────────────────────────────────
 
 class _ProductPickerSheet extends StatefulWidget {
-  final Set<String> already;
-  final ValueChanged<Product> onAdd;
+  final Map<String, double> currentQuantities;
+  final void Function(Product product, double qty) onQuantityChange;
 
-  const _ProductPickerSheet(
-      {required this.already, required this.onAdd});
+  const _ProductPickerSheet({
+    required this.currentQuantities,
+    required this.onQuantityChange,
+  });
 
   @override
-  State<_ProductPickerSheet> createState() =>
-      _ProductPickerSheetState();
+  State<_ProductPickerSheet> createState() => _ProductPickerSheetState();
 }
+
+enum _ProductFilter { all, inOrder, available }
 
 class _ProductPickerSheetState extends State<_ProductPickerSheet> {
   String _query = '';
+  _ProductFilter _filter = _ProductFilter.all;
+  late final Map<String, double> _quantities;
+
+  @override
+  void initState() {
+    super.initState();
+    _quantities = Map.from(widget.currentQuantities);
+  }
+
+  int get _inOrderCount =>
+      _quantities.values.where((q) => q > 0).length;
+
+  List<Product> _applyFilter(List<Product> all) {
+    return switch (_filter) {
+      _ProductFilter.inOrder =>
+        all.where((p) => (_quantities[p.id] ?? 0) > 0).toList(),
+      _ProductFilter.available =>
+        all.where((p) => (_quantities[p.id] ?? 0) == 0).toList(),
+      _ProductFilter.all => all,
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final filtered = context.watch<ProductController>().search(_query);
+    final all = context.watch<ProductController>().search(_query);
+    final products = _applyFilter(all);
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
 
-    return DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.75,
-      maxChildSize: 0.95,
-      builder: (ctx, scroll) => Column(
+    return Padding(
+      padding: EdgeInsets.only(bottom: keyboardHeight),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
@@ -909,71 +1177,308 @@ class _ProductPickerSheetState extends State<_ProductPickerSheet> {
                         borderRadius: BorderRadius.circular(2)),
                   ),
                 ),
-                const Text('Adicionar Produto',
+                const Text('Produtos do Pedido',
                     style: TextStyle(
                         fontSize: 17, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 12),
                 SearchBar(
                   hintText: 'Buscar produto...',
                   leading: const Icon(Icons.search),
+                  trailing: [
+                    if (_query.isNotEmpty)
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => setState(() => _query = ''),
+                      ),
+                  ],
                   onChanged: (v) =>
                       setState(() => _query = v.toLowerCase()),
+                ),
+                const SizedBox(height: 10),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _FilterChip(
+                        label: 'Todos',
+                        selected: _filter == _ProductFilter.all,
+                        onTap: () =>
+                            setState(() => _filter = _ProductFilter.all),
+                      ),
+                      const SizedBox(width: 8),
+                      _FilterChip(
+                        label: _inOrderCount > 0
+                            ? 'No pedido ($_inOrderCount)'
+                            : 'No pedido',
+                        selected: _filter == _ProductFilter.inOrder,
+                        onTap: () => setState(
+                            () => _filter = _ProductFilter.inOrder),
+                      ),
+                      const SizedBox(width: 8),
+                      _FilterChip(
+                        label: 'Disponíveis',
+                        selected: _filter == _ProductFilter.available,
+                        onTap: () => setState(
+                            () => _filter = _ProductFilter.available),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
           const Divider(height: 1),
-          Expanded(
-            child: ListView.separated(
-              controller: scroll,
-              itemCount: filtered.length,
-              separatorBuilder: (_, __) =>
-                  const Divider(height: 1, indent: 16),
-              itemBuilder: (ctx, i) {
-                final p = filtered[i];
-                final added = widget.already.contains(p.id);
-                return ListTile(
-                  leading: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: added
-                          ? colors.secondaryContainer
-                          : colors.primaryContainer,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      added
-                          ? Icons.check
-                          : Icons.inventory_2_outlined,
-                      size: 18,
-                      color: added
-                          ? colors.onSecondaryContainer
-                          : colors.onPrimaryContainer,
-                    ),
-                  ),
-                  title: Text(p.name,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w500, fontSize: 14)),
-                  subtitle: Text(
-                      p.code.isNotEmpty ? 'Cód. ${p.code}' : p.unit,
-                      style: const TextStyle(fontSize: 12)),
-                  trailing: Text(
-                    formatCurrency(p.price),
-                    style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: colors.primary),
-                  ),
-                  enabled: !added,
-                  onTap: added
-                      ? null
-                      : () {
-                          widget.onAdd(p);
-                          Navigator.pop(context);
-                        },
-                );
-              },
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: (MediaQuery.of(context).size.height -
+                      keyboardHeight) *
+                  0.45,
             ),
+            child: products.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Center(
+                      child: Text(
+                        _filter == _ProductFilter.inOrder
+                            ? 'Nenhum produto adicionado ainda.'
+                            : 'Nenhum produto encontrado.',
+                        style: TextStyle(color: colors.onSurfaceVariant),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  )
+                : ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: products.length,
+                    separatorBuilder: (_, __) =>
+                        const Divider(height: 1, indent: 16),
+                    itemBuilder: (ctx, i) {
+                      final p = products[i];
+                      return _ProductPickerTile(
+                        key: ValueKey(p.id),
+                        product: p,
+                        quantity: _quantities[p.id] ?? 0,
+                        onQtyChanged: (qty) {
+                          setState(() => _quantities[p.id] = qty);
+                          widget.onQuantityChange(p, qty);
+                        },
+                      );
+                    },
+                  ),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Filter chip ───────────────────────────────────────────────────────────────
+
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected ? colors.primaryContainer : colors.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? colors.primary : colors.outlineVariant,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight:
+                selected ? FontWeight.w600 : FontWeight.normal,
+            color: selected
+                ? colors.onPrimaryContainer
+                : colors.onSurfaceVariant,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Product picker tile ───────────────────────────────────────────────────────
+
+class _ProductPickerTile extends StatefulWidget {
+  final Product product;
+  final double quantity;
+  final ValueChanged<double> onQtyChanged;
+
+  const _ProductPickerTile({
+    super.key,
+    required this.product,
+    required this.quantity,
+    required this.onQtyChanged,
+  });
+
+  @override
+  State<_ProductPickerTile> createState() => _ProductPickerTileState();
+}
+
+class _ProductPickerTileState extends State<_ProductPickerTile> {
+  late final TextEditingController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(
+      text: widget.quantity > 0
+          ? widget.quantity.toStringAsFixed(0)
+          : '',
+    );
+  }
+
+  @override
+  void didUpdateWidget(_ProductPickerTile old) {
+    super.didUpdateWidget(old);
+    if (old.quantity != widget.quantity) {
+      final text = widget.quantity > 0
+          ? widget.quantity.toStringAsFixed(0)
+          : '';
+      if (_ctrl.text != text) _ctrl.text = text;
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _increment() {
+    final next = (double.tryParse(_ctrl.text) ?? 0) + 1;
+    _ctrl.text = next.toStringAsFixed(0);
+    widget.onQtyChanged(next);
+  }
+
+  void _decrement() {
+    final next = ((double.tryParse(_ctrl.text) ?? 0) - 1).clamp(0, double.infinity).toDouble();
+    _ctrl.text = next > 0 ? next.toStringAsFixed(0) : '';
+    widget.onQtyChanged(next);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final p = widget.product;
+    final qty = double.tryParse(_ctrl.text) ?? 0;
+    final inCart = qty > 0;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          // leading icon
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: inCart
+                  ? colors.primaryContainer
+                  : colors.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              inCart ? Icons.check : Icons.inventory_2_outlined,
+              size: 18,
+              color: inCart
+                  ? colors.onPrimaryContainer
+                  : colors.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(width: 12),
+          // product info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(p.name,
+                    style: TextStyle(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 14,
+                        color:
+                            inCart ? colors.primary : colors.onSurface)),
+                Text(
+                  p.code.isNotEmpty
+                      ? 'Cód. ${p.code} · ${formatCurrency(p.price)}/${p.unit}'
+                      : '${formatCurrency(p.price)} / ${p.unit}',
+                  style: TextStyle(
+                      fontSize: 12, color: colors.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          // qty controls
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                onPressed: qty > 0 ? _decrement : null,
+                icon: const Icon(Icons.remove_circle_outline),
+                color: colors.primary,
+                disabledColor: colors.outlineVariant,
+                iconSize: 22,
+                padding: EdgeInsets.zero,
+                constraints:
+                    const BoxConstraints(minWidth: 32, minHeight: 32),
+              ),
+              SizedBox(
+                width: 52,
+                child: TextField(
+                  controller: _ctrl,
+                  keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: inCart ? colors.primary : colors.onSurface),
+                  onChanged: (v) {
+                    final parsed =
+                        double.tryParse(v.replaceAll(',', '.')) ?? 0;
+                    widget.onQtyChanged(parsed);
+                  },
+                  decoration: InputDecoration(
+                    hintText: '0',
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 6, vertical: 8),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: _increment,
+                icon: const Icon(Icons.add_circle_outline),
+                color: colors.primary,
+                iconSize: 22,
+                padding: EdgeInsets.zero,
+                constraints:
+                    const BoxConstraints(minWidth: 32, minHeight: 32),
+              ),
+            ],
           ),
         ],
       ),
